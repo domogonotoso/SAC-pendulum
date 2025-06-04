@@ -1,7 +1,16 @@
-프레임별 reward/step/epsilon 표시
+프레임별 reward/step/epsilon 표시, make gif and put it at readme
+
+## Pendulum
+![asdf](results/videos/annotated_episode_dynamic.gif)
+## SAC (Soft Actor Critic), What is it?
+Soft Actor-Critic (SAC) is a model-free, off-policy RL algorithm for continuous action spaces.  
+It uses an actor network to output mean and standard deviation of actions, creating a Gaussian policy.  
+SAC also includes entropy regularization to balance exploration and exploitation, making the policy soft. 
+![alt text]
 
 
 
+## 📁 Project Structure
 
 ```text
 sac-pendulum/
@@ -29,3 +38,9 @@ sac-pendulum/
 
 
 ```
+
+
+
+
+
+! [reward_plot](results/rewards_plot.png)

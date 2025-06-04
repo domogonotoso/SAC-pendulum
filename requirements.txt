@@ -1,0 +1,4 @@
+moviepy
+gym[classic_control]`
+
+opencv-python

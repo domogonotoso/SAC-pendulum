@@ -4,9 +4,3 @@ __pycache__/
 
 # VSCode
 .vscode/
-
-videos/
-!videos/rl-video-episode-0.mp4
-
-results/
-!results/rewards_plot.png
