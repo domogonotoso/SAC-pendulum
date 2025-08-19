@@ -1,12 +1,11 @@
-## Pendulum
+## Controlling Pendulum by SAC
 ![asdf](results/videos/annotated_episode_dynamic.gif)
-  ## SAC (Soft Actor Critic), What is it?
-Soft Actor-Critic (SAC) is off-policy RL algorithm for continuous action spaces.  
-It uses an actor network to output mean and standard deviation of actions, creating a Gaussian policy.  
-SAC also includes entropy regularization to balance exploration and exploitation, making the policy soft. 
-![alt text]
 
-https://www.youtube.com/watch?v=cy8r7WSuT1I&ab_channel=3Blue1Brown
+## SAC (Soft Actor Critic), What is it?
+Soft Actor-Critic (SAC) is off-policy RL algorithm for continuous action spaces.  
+It especially uses an actor network to output mean and standard deviation of actions, creating a Gaussian policy. 
+And estimate its q_value for knowing how action at the situation is good.
+SAC also includes entropy regularization at Loss function to balance exploration and exploitation, making the policy soft. 
 
 ## 📁 Project Structure
 
@@ -16,8 +15,7 @@ sac-pendulum/
 │   └── sac_agent.py         # SAC agent with actor-critic update logic and replay buffer
 ├── models/
 │   ├── actor.py             # Actor network definition
-│   ├── critic.py            # Critic (Q-value) network definition
-│   └── value.py             # (Optional) Value network if using soft value update separately
+│   └── critic.py            # Critic (Q-value) network definition
 ├── utils/
 │   └── plot.py              # Training curve plotting utilities
 ├── config/
@@ -39,28 +37,7 @@ sac-pendulum/
 
 
 
-
-
-![reward_plot](results/rewards_plot.png)
-
-
-
-log_std
-
-
-
-load model and even parameters of each Adam optimizer from pth
-
-log_prob 이거 엔트로피 구하는거 같은데. 왜 tanh actionbound 하기 전에 하는거지? 아니 애초에 action 값나온게 action bound 안에 안드네?
-그럼 안드는 데이터, 처음에 모델에서 나온 데이터로만 엔트로피 구해야 정확히 구해지는건가
-
-
-
-F.softplus(-2 * u)  # log(1 + exp(-2u))
-
-
-
-## implement
+## ✅ Implemented Features
 1. block overestimating q-value
 ```python
         # sac_agent.py, line 97
@@ -77,19 +54,119 @@ F.softplus(-2 * u)  # log(1 + exp(-2u))
             target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 ```
 3. video with step and reward per frames
-4. main.py  train test render
+```python
+        # main.py, line 72
+        def add_text(get_frame, t):
+                frame = get_frame(t)
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                step = int(video.fps * t)
+                reward_val = rewards[step] if step < len(rewards) else 0
+                text = f"Step: {step}  Reward: {reward_val:.2f}"
+                cv2.putText(frame, text, (30, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                return frame
+```
+
+4. Use distribution at train mode to explore and use pdf(for entropy) at Loss function
+```python
+        # sac_agent.py, line 37
+        if eval_mode:
+            action = mean
+        else:
+            dist = torch.distributions.Normal(mean, std)
+            action = dist.rsample()
+```
+
+5. Get a log_prob from probability density function, adjust scaled by multipling Jacobian, use approximate formular to block overflow 
+```python
+        # sac_agent.py, line 60, 92
+            log_prob = dist.log_prob(next_action).sum(dim=-1, keepdim=True)
+            log_prob -= (2 * (np.log(2) - next_action - F.softplus(-2 * next_action))).sum(dim=-1, keepdim=True)
+```
+
+6. main.py  train test render
+
+## 🚀 How to Run
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Train the agent
+python main.py --mode train
+
+# Test the trained agent
+python main.py --mode test
+
+# Render and record video
+python main.py --mode render
+```
 
 
+## Curious 헷갈렸던거 어려웠던
 
+1. Q. Why it doesn't use expectation of entropy but use the part of it?  
+$H(\pi) = -\mathbb{E}_{a \sim \pi}[\log \pi(a|s)]$            log_prob = log π(a|s)
+   A. We use MSELoss, and it sum data of a batch and divide. It can be a expectiation of entropy approximately.
 
-## Curious 헷갈렸던거
-
+2. Comprehending
 ```python
         log_prob = dist.log_prob(action_sample).sum(dim=-1, keepdim=True)
         log_prob -= (2 * (np.log(2) - action_sample - F.softplus(-2 * action_sample))).sum(dim=-1, keepdim=True)
 ```
-엔트로피: $H(\pi) = -\mathbb{E}_{a \sim \pi}[\log \pi(a|s)]$
+
+We put the value of action_sample to gaussian distribution we used, which is called probability density function. But we multiply Jacobian to it, because action-space is different with originally gaussian distribution's space. 
+
+This is an example of probability density function from action-space and gaussian distribution that has mean = 0 and standard deviation = 1 
+![pdf](photo&gif\pdf.png)
+
+For fix this scale, we multiply jacobian and there it is.
+$$
+\pi(a) = \pi_u(u) \cdot \left|\frac{du}{da}\right|
+$$
+$$
+\log \pi(a) = \log \pi_u(u) + \log \left|\frac{du}{da}\right|
+$$
+The derivative of the transformation is:
 
 $$
--\log(1 - \tanh^2(x)) = 2(\log(2) - x - \mathrm{softplus}(-2x))
+\frac{\partial a}{\partial u} = 1 - \tanh^2(u)   \text{, }  \frac{\partial u}{\partial a} = \frac{1}{1 - \tanh^2(u)}
 $$
+
+
+$$
+\log \left|\frac{du}{da}\right| = - \log(1 - \tanh^2(u))
+$$
+
+
+
+$$
+-\log(1 - \tanh^2(u)) = 2 \log \cosh(u) \quad 
+$$
+
+
+
+$$
+\log \cosh(u) = \log(2) - u - \mathrm{softplus}(-2u) (\text{where } \mathrm{softplus}(z)=\log(1+e^z))
+$$
+
+
+
+$$
+-\log(1 - \tanh^2(u)) = 2(\log(2) - u - \mathrm{softplus}(-2u))
+$$
+
+
+So Jacobian applied to python code.
+$$
+\log \left|\frac{du}{da}\right| = 2(\log(2) - u - \mathrm{softplus}(-2u))
+$$
+
+
+```python
+        log_prob -= (2 * (np.log(2) - action_sample - F.softplus(-2 * action_sample))).sum(dim=-1, keepdim=True)
+```
+(from 
+$H(\pi) = -\mathbb{E}_{a \sim \pi}[\log \pi(a|s)]$
+, we use $-\log \pi(a)$)
