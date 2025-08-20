@@ -1,4 +1,8 @@
-moviepy
-gym[classic_control]`
-
+torch
+torchvision         
+numpy
+matplotlib
+pyyaml
+gym[classic_control]
 opencv-python
+moviepy
