@@ -135,16 +135,18 @@ python main.py --mode render
 * However, actions are sampled in the transformed space (a = tanh(u)).
 * To correct this mismatch, we apply the Jacobian of the transformation:
 
-  $$
-  \pi(a) = \pi_u(u) \cdot \left|\frac{du}{da}\right|, \quad 
-  \log \pi(a) = \log \pi_u(u) + \log \left|\frac{du}{da}\right|
-  $$
-* The derivative gives:
+$$
+\pi(a) = \pi_u(u) \cdot \left|\frac{du}{da}\right|, \quad
+\log \pi(a) = \log \pi_u(u) + \log \left|\frac{du}{da}\right|
+$$
 
-  $$
-  \log \left|\frac{du}{da}\right|
-  = 2(\log(2) - u - \mathrm{softplus}(-2u))
-  $$
+The derivative gives:
+
+$$
+\log \left|\frac{du}{da}\right|
+= 2(\log 2 - u - \mathrm{softplus}(-2u))
+$$
+
 * Implemented in code:
 
 ```python
